@@ -52,7 +52,7 @@ const SURVEY_DATA: Question[] = [
     text: "Bienvenue à l'entrevue : Sorties Hivernales en CPE",
     tags: ['Recherche', 'Design', 'Innovation'],
     placeholder: "",
-    imageUrl: "https://picsum.photos/seed/winter_intro/800/600",
+    imageUrl: "/cover.jpg",
     isInfoOnly: true
   },
   {
