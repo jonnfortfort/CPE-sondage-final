@@ -52,7 +52,7 @@ const SURVEY_DATA: Question[] = [
     text: "Bienvenue à l'entrevue : Sorties Hivernales en CPE",
     tags: ['Recherche', 'Design', 'Innovation'],
     placeholder: "",
-    imageUrl: "/cover.jpg",
+    imageUrl: "https://www.voyagesetenfants.com/wp-content/uploads/2020/11/2015.02.28-Raquette-%C3%A9cole-emilien-3-1024x576.jpg",
     isInfoOnly: true
   },
   {
