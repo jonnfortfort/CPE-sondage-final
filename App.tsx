@@ -225,11 +225,13 @@ const SURVEY_DATA: Question[] = [
     placeholder: "Un espace couvert mais ouvert, avec...",
     imageUrl: "https://picsum.photos/seed/winter_wonderland/800/600"
   },
-  id: 'theme_c_5.1',
+  {
+    id: 'theme_c_5.1',
     category: QuestionCategory.THEME_C,
     text: "Avez-vous d'autre remarque ?",
     placeholder: "Décrivez-vous",
     imageUrl: "https://picsum.photos/seed/winter_wonderland/800/600"
+  },   
 ];
 
 // 4. SERVICES
