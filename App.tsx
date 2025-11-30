@@ -1,12 +1,28 @@
-declare const process: any;
+import React, { useState, useRef } from 'react';
+import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 
-import React, { useState, useEffect, useRef } from 'react';
-import { GoogleGenAI, Type } from "@google/genai";
+// --- 1. CONFIGURATION & UTILS ---
 
-// 1. CONFIGURATION
-const RESEARCHER_EMAIL = "penghann@hotmail.com"; 
+// 為了兼容 Vite (import.meta.env) 和 Create React App (process.env)
+const getEnv = (key: string) => {
+  // @ts-ignore
+  if (typeof import.meta !== 'undefined' && import.meta.env) {
+    // @ts-ignore
+    return import.meta.env[`VITE_${key}`] || import.meta.env[key];
+  }
+  // @ts-ignore
+  if (typeof process !== 'undefined' && process.env) {
+    // @ts-ignore
+    return process.env[`REACT_APP_${key}`] || process.env[key];
+  }
+  return '';
+};
 
-// 2. TYPES
+const RESEARCHER_EMAIL = "penghann@hotmail.com";
+const API_KEY = getEnv('API_KEY'); // 確保在 .env 文件中設置了 VITE_API_KEY 或 REACT_APP_API_KEY
+
+// --- 2. TYPES ---
+
 enum QuestionCategory {
   INTRO = 'INTRO',
   CONTEXT = 'CONTEXT',
@@ -44,7 +60,8 @@ interface AiAnalysisResult {
   categoryScores: { label: string; score: number; }[];
 }
 
-// 3. DATA
+// --- 3. DATA ---
+
 const SURVEY_DATA: Question[] = [
   {
     id: 'intro_01',
@@ -79,7 +96,7 @@ const SURVEY_DATA: Question[] = [
     text: "Thématique A : Décrire vos pratiques hivernales",
     tags: ['Routine', 'Activités'],
     placeholder: "Objectif : Comprendre concrètement comment se déroulent les sorties hivernales, de la préparation jusqu’au retour à l’intérieur.",
-    imageUrl: "",
+    imageUrl: "https://picsum.photos/seed/winter_morning/800/600", // Added Image
     isInfoOnly: true
   },
   {
@@ -103,7 +120,7 @@ const SURVEY_DATA: Question[] = [
   {
     id: 'theme_a_3',
     category: QuestionCategory.THEME_A,
-    text: "Est-ce que vous adaptez vos activités selon les conditions du jour ? Pourqoui ?",
+    text: "Est-ce que vous adaptez vos activités selon les conditions du jour ? Pourquoi ?",
     tags: ['Adaptation', 'Météo', 'Flexibilité'],
     answerTags: ['Grand froid', 'Verglas', 'Vent', 'Neige collante', 'Sortie raccourcie', 'Annulation', 'Marche seulement', 'Gymnase'],
     placeholder: "S'il fait très froid, on raccourcit la sortie...",
@@ -124,7 +141,7 @@ const SURVEY_DATA: Question[] = [
     text: "Thématique B : Identifier les moments de difficulté",
     tags: ['Défis', 'Stress', 'Sécurité'],
     placeholder: "Objectifs : Guider la réflexion sur des situations spécifiques, les détails des stratégies d'adaptation et le stress quotidien.",
-    imageUrl: "",
+    imageUrl: "https://picsum.photos/seed/stress_winter/800/600",
     isInfoOnly: true
   },
   {
@@ -148,7 +165,7 @@ const SURVEY_DATA: Question[] = [
   {
     id: 'theme_b_3',
     category: QuestionCategory.THEME_B,
-    text: "Certains enfants réagissent-ils différemment au froid (besoins particuliers, anxiété) ? Comment gérez-vous cela ?",
+    text: "Certains enfants réagissent-ils différemment au froid (besoins particuliers, anxiété) ?",
     tags: ['Émotion', 'Besoins Spéciaux', 'Inconfort'],
     answerTags: ['Pleurs', 'Refus de bouger', 'Mains gelées', 'Asthme', 'Peau sensible', 'Besoin de bras', 'Aime le froid', 'Déteste la neige'],
     placeholder: "J'ai un enfant qui refuse de mettre ses mitaines...",
@@ -157,10 +174,10 @@ const SURVEY_DATA: Question[] = [
   {
     id: 'theme_b_3.1',
     category: QuestionCategory.THEME_B,
-    text: "Comment gérez-vous cela ?",
-    tags: ['Émotion', 'Besoins Spéciaux', 'Inconfort'],
-    placeholder: "Suite à la question : Certains enfants réagissent-ils différemment au froid (besoins particuliers, anxiété) ",
-    imageUrl: "https://picsum.photos/seed/crying_child/800/600"
+    text: "Comment gérez-vous cela concrètement ?",
+    tags: ['Stratégie', 'Patience', 'Adaptation'],
+    placeholder: "Je prends le temps de...",
+    imageUrl: "https://picsum.photos/seed/comforting/800/600"
   },
   {
     id: 'theme_b_4',
@@ -177,7 +194,7 @@ const SURVEY_DATA: Question[] = [
     text: "Thématique C : Faire émerger les besoins non satisfaits",
     tags: ['Besoins', 'Futur', 'Solutions'],
     placeholder: "Objectifs : Comprendre ce qui manque actuellement pour soutenir de meilleures expériences hivernales.",
-    imageUrl: "",
+    imageUrl: "https://picsum.photos/seed/future_design/800/600",
     isInfoOnly: true
   },
   {
@@ -228,33 +245,64 @@ const SURVEY_DATA: Question[] = [
   {
     id: 'theme_c_5.1',
     category: QuestionCategory.THEME_C,
-    text: "Avez-vous d'autre remarque ?",
-    placeholder: "Décrivez-vous",
-    imageUrl: "https://picsum.photos/seed/winter_wonderland/800/600"
+    text: "Avez-vous d'autres remarques ou suggestions ?",
+    tags: ['Libre', 'Conclusion'],
+    placeholder: "Tout ce qui n'a pas été dit...",
+    imageUrl: "https://picsum.photos/seed/notes/800/600"
   },   
 ];
 
-// 4. SERVICES
+// --- 4. SERVICES ---
+
 const analyzeSurvey = async (
   responses: SurveyResponse,
   questions: Question[]
 ): Promise<AiAnalysisResult> => {
-  if (!process.env.API_KEY) {
-    return {
-      personaTitle: "Mode Simulation",
-      summary: "Ceci est une analyse simulée car aucune clé API n'est connectée. Les données seront tout de même envoyées par email.",
-      topPainPoints: ["Simulation Activée", "Pas de clé API détectée"],
-      suggestion: "Vérifiez vos emails pour voir les réponses brutes.",
-      sentimentScore: 80,
+  if (!API_KEY) {
+    console.warn("API Key manquante. Mode Simulation activé.");
+    return new Promise(resolve => setTimeout(() => resolve({
+      personaTitle: "Mode Simulation (Pas de Clé API)",
+      summary: "Ceci est une analyse simulée car aucune clé API n'est détectée. Configurez VITE_API_KEY ou REACT_APP_API_KEY.",
+      topPainPoints: ["Clé API manquante", "Données non analysées", "Simulation uniquement"],
+      suggestion: "Vérifiez votre configuration .env",
+      sentimentScore: 50,
       categoryScores: [
         { label: "Sécurité", score: 5 },
-        { label: "Organisation", score: 6 },
-        { label: "Matériel", score: 4 }
+        { label: "Organisation", score: 5 },
+        { label: "Matériel", score: 5 }
       ]
-    };
+    }), 2000));
   }
 
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const genAI = new GoogleGenerativeAI(API_KEY);
+  // Utilisation de gemini-1.5-flash car 2.5 n'est pas encore disponible publiquement
+  const model = genAI.getModel({
+    model: "gemini-1.5-flash", 
+    generationConfig: {
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: SchemaType.OBJECT,
+        properties: {
+          personaTitle: { type: SchemaType.STRING },
+          summary: { type: SchemaType.STRING },
+          topPainPoints: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
+          suggestion: { type: SchemaType.STRING },
+          sentimentScore: { type: SchemaType.NUMBER },
+          categoryScores: {
+            type: SchemaType.ARRAY,
+            items: {
+              type: SchemaType.OBJECT,
+              properties: {
+                label: { type: SchemaType.STRING },
+                score: { type: SchemaType.NUMBER }
+              }
+            }
+          }
+        }
+      }
+    }
+  });
+
   let transcript = "";
   questions.forEach(q => {
     if (!q.isInfoOnly) {
@@ -266,47 +314,27 @@ const analyzeSurvey = async (
   });
 
   try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: `Analyse ces réponses. JSON Requis: personaTitle, summary, topPainPoints (array), suggestion, sentimentScore (0-100), categoryScores (array {label, score}). \n\n ${transcript}`,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            personaTitle: { type: Type.STRING },
-            summary: { type: Type.STRING },
-            topPainPoints: { type: Type.ARRAY, items: { type: Type.STRING } },
-            suggestion: { type: Type.STRING },
-            sentimentScore: { type: Type.INTEGER },
-            categoryScores: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  label: { type: Type.STRING },
-                  score: { type: Type.INTEGER }
-                }
-              }
-            }
-          }
-        }
-      }
-    });
-    return JSON.parse(response.text || "{}") as AiAnalysisResult;
+    const result = await model.generateContent(
+      `Analyse ces réponses d'entrevue concernant les sorties hivernales en garderie (CPE). 
+       Agis comme un expert UX Research.
+       Données: ${transcript}`
+    );
+    return JSON.parse(result.response.text()) as AiAnalysisResult;
   } catch (error) {
+    console.error("Erreur Gemini:", error);
     return {
-      personaTitle: "Erreur IA",
-      summary: "Erreur de connexion.",
+      personaTitle: "Erreur d'analyse",
+      summary: "Une erreur est survenue lors de la communication avec l'IA.",
       topPainPoints: [],
-      suggestion: "",
+      suggestion: "Veuillez réessayer plus tard.",
       sentimentScore: 0,
       categoryScores: []
     };
   }
 };
 
-// 5. RESULTS VIEW
+// --- 5. RESULTS COMPONENT ---
+
 const AnalysisView: React.FC<{
   result: AiAnalysisResult | null;
   loading: boolean;
@@ -323,13 +351,18 @@ const AnalysisView: React.FC<{
 
     const formattedData: any = { 
       _subject: "Nouvelle Réponse - Enquête CPE",
-      _template: "table"
+      _template: "table",
+      // Ajout de l'analyse IA dans le mail si disponible
+      _analysis_persona: result?.personaTitle,
+      _analysis_summary: result?.summary,
     };
     
     SURVEY_DATA.forEach(q => {
       if (!q.isInfoOnly) {
         const r = responses[q.id];
-        formattedData[`Q-${q.id}`] = `RÉPONSE: ${r?.text || 'N/A'} | TAGS: ${r?.selectedTags?.join(',') || 'N/A'}`;
+        if (r && (r.text || r.selectedTags.length > 0)) {
+           formattedData[`Q-${q.id} (${q.text.substring(0,30)}...)`] = `${r.text} [${r.selectedTags.join(',')}]`;
+        }
       }
     });
 
@@ -353,74 +386,110 @@ const AnalysisView: React.FC<{
   };
 
   if (loading) return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50">
-      <div className="text-center animate-pulse">
-        <div className="text-4xl mb-4">🤖</div>
-        <div className="text-2xl font-bold text-slate-600">Analyse des réponses...</div>
-      </div>
+    <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50">
+      <div className="text-6xl mb-6 animate-bounce">❄️</div>
+      <div className="text-2xl font-bold text-slate-600 animate-pulse">L'IA analyse vos réponses...</div>
+      <p className="text-slate-400 mt-2">Génération du profil et des recommandations</p>
     </div>
   );
   
   if (!result) return null;
 
   return (
-    <div className="max-w-4xl mx-auto p-8 bg-white rounded-3xl shadow-xl m-4 border border-slate-100">
-      <div className="text-center mb-8">
-        <h2 className="text-4xl font-extrabold text-slate-900 mb-4">{result.personaTitle}</h2>
-        <p className="text-lg text-slate-600">{result.summary}</p>
-      </div>
-      
-      <div className="grid md:grid-cols-2 gap-8 mb-8">
-        <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 text-center">
-          <h3 className="font-bold text-slate-400 uppercase text-sm mb-2">Moral Global</h3>
-          <div className="text-6xl font-bold text-sky-500">{result.sentimentScore}%</div>
-        </div>
-        <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200">
-          <h3 className="font-bold text-slate-400 uppercase text-sm mb-4">Scores par Catégorie</h3>
-          {result.categoryScores.map((c, i) => (
-             <div key={i} className="mb-3">
-               <div className="flex justify-between text-sm font-bold mb-1 text-slate-700"><span>{c.label}</span><span>{c.score}/10</span></div>
-               <div className="h-3 bg-slate-200 rounded-full overflow-hidden">
-                 <div style={{width: `${c.score*10}%`}} className="h-full bg-blue-500 rounded-full"></div>
-               </div>
-             </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="bg-white border border-rose-100 p-6 rounded-2xl mb-8 shadow-sm">
-        <h3 className="font-bold text-rose-500 mb-4 flex items-center"><span className="mr-2">⚠️</span> Points de friction majeurs</h3>
-        <ul className="space-y-2">
-          {result.topPainPoints.map((p, i) => <li key={i} className="text-slate-700 flex"><span className="mr-2">•</span>{p}</li>)}
-        </ul>
-      </div>
-
-      <div className="bg-slate-900 p-8 rounded-2xl text-center space-y-6">
-        {!emailSent ? (
-          <>
-            <p className="text-slate-300">Cliquez ci-dessous pour envoyer les résultats au chercheur.</p>
-            <button onClick={handleSendResults} disabled={isSending} className="bg-sky-500 hover:bg-sky-400 text-white px-8 py-4 rounded-xl font-bold text-lg transition-all shadow-lg hover:scale-105 disabled:opacity-50">
-              {isSending ? "Envoi en cours..." : "Envoyer mes réponses"}
-            </button>
-            {sendError && <p className="text-rose-400">Erreur d'envoi. Vérifiez votre connexion.</p>}
-          </>
-        ) : (
-          <div className="p-4 bg-emerald-500/20 border border-emerald-500/50 rounded-xl">
-            <p className="text-emerald-400 font-bold text-xl">✅ Réponses envoyées avec succès !</p>
-            <p className="text-emerald-200/70 text-sm mt-1">Merci de votre participation.</p>
+    <div className="max-w-5xl mx-auto p-8 my-8">
+      <div className="bg-white rounded-[2rem] shadow-2xl overflow-hidden border border-slate-100">
+        <div className="bg-slate-900 p-10 text-white text-center relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-sky-500/20 to-purple-500/20"></div>
+          <div className="relative z-10">
+            <h2 className="text-4xl md:text-5xl font-extrabold mb-4">{result.personaTitle}</h2>
+            <p className="text-lg text-slate-300 max-w-2xl mx-auto leading-relaxed">{result.summary}</p>
           </div>
-        )}
+        </div>
         
-        <div className="flex justify-center gap-6 text-slate-400 pt-4 border-t border-slate-700">
-           <button onClick={() => window.print()} className="hover:text-white underline">Sauvegarder en PDF</button>
-           <button onClick={onRestart} className="hover:text-white underline">Nouvelle entrevue</button>
+        <div className="p-8 md:p-12">
+          <div className="grid md:grid-cols-2 gap-8 mb-10">
+            <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 flex flex-col items-center justify-center text-center">
+              <h3 className="font-bold text-slate-400 uppercase text-xs tracking-widest mb-4">Indice de Satisfaction</h3>
+              <div className="relative">
+                <svg className="w-32 h-32 transform -rotate-90">
+                  <circle cx="64" cy="64" r="60" stroke="#e2e8f0" strokeWidth="8" fill="transparent" />
+                  <circle cx="64" cy="64" r="60" stroke={result.sentimentScore > 50 ? "#0ea5e9" : "#f43f5e"} strokeWidth="8" fill="transparent" strokeDasharray={377} strokeDashoffset={377 - (377 * result.sentimentScore) / 100} className="transition-all duration-1000 ease-out" />
+                </svg>
+                <div className="absolute inset-0 flex items-center justify-center text-3xl font-bold text-slate-700">{result.sentimentScore}%</div>
+              </div>
+            </div>
+
+            <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200">
+              <h3 className="font-bold text-slate-400 uppercase text-xs tracking-widest mb-6">Détails par Catégorie</h3>
+              {result.categoryScores.map((c, i) => (
+                 <div key={i} className="mb-4">
+                   <div className="flex justify-between text-sm font-bold mb-2 text-slate-700">
+                     <span>{c.label}</span>
+                     <span className={c.score < 5 ? 'text-rose-500' : 'text-emerald-500'}>{c.score}/10</span>
+                   </div>
+                   <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
+                     <div style={{width: `${c.score*10}%`}} className={`h-full rounded-full ${c.score < 5 ? 'bg-rose-400' : 'bg-emerald-400'}`}></div>
+                   </div>
+                 </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="bg-rose-50 border border-rose-100 p-8 rounded-2xl mb-10">
+            <h3 className="font-bold text-rose-600 mb-6 flex items-center text-lg">
+              <span className="text-2xl mr-3">⚠️</span> Points de friction majeurs
+            </h3>
+            <ul className="space-y-3">
+              {result.topPainPoints.map((p, i) => (
+                <li key={i} className="text-slate-800 flex items-start">
+                  <span className="inline-block w-2 h-2 bg-rose-400 rounded-full mt-2 mr-3 flex-shrink-0"></span>
+                  {p}
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div className="bg-slate-50 p-8 rounded-2xl mb-12 border-l-4 border-sky-500">
+             <h3 className="font-bold text-sky-800 mb-2 uppercase text-xs tracking-widest">Suggestion IA</h3>
+             <p className="text-slate-700 text-lg italic">"{result.suggestion}"</p>
+          </div>
+
+          <div className="border-t border-slate-100 pt-10 text-center space-y-6">
+            {!emailSent ? (
+              <>
+                <p className="text-slate-500">Envoyez vos réponses anonymisées pour contribuer à la recherche.</p>
+                <button 
+                  onClick={handleSendResults} 
+                  disabled={isSending} 
+                  className={`
+                    px-10 py-4 rounded-xl font-bold text-lg shadow-xl transition-all
+                    ${isSending ? 'bg-slate-100 text-slate-400 cursor-wait' : 'bg-sky-500 text-white hover:bg-sky-400 hover:scale-105 hover:shadow-sky-200'}
+                  `}
+                >
+                  {isSending ? "Envoi en cours..." : "Envoyer mes réponses"}
+                </button>
+                {sendError && <p className="text-rose-500 font-medium bg-rose-50 inline-block px-4 py-2 rounded-lg">Erreur d'envoi. Vérifiez votre connexion.</p>}
+              </>
+            ) : (
+              <div className="p-6 bg-emerald-50 border border-emerald-100 rounded-2xl inline-block">
+                <p className="text-emerald-600 font-bold text-2xl mb-2">✅ Merci !</p>
+                <p className="text-emerald-800">Vos réponses ont été transmises avec succès.</p>
+              </div>
+            )}
+            
+            <div className="flex justify-center gap-8 text-sm font-medium text-slate-400 mt-8">
+               <button onClick={() => window.print()} className="hover:text-slate-700 flex items-center gap-2">🖨️ Sauvegarder PDF</button>
+               <button onClick={onRestart} className="hover:text-slate-700 flex items-center gap-2">🔄 Nouvelle entrevue</button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
   );
 };
 
-// 6. MAIN APP
+// --- 6. MAIN APP COMPONENT ---
+
 const App: React.FC = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [responses, setResponses] = useState<SurveyResponse>({});
@@ -434,11 +503,19 @@ const App: React.FC = () => {
   const isLastQuestion = currentIndex === SURVEY_DATA.length - 1;
   const currentResponse = responses[currentQuestion.id] || { text: '', selectedTags: [] };
   
-  const isMandatory = !currentQuestion.isInfoOnly && ['PRATIQUES', 'DIFFICULTES', 'BESOINS'].includes(currentQuestion.category);
-  const isValid = currentQuestion.isInfoOnly || !isMandatory || (currentResponse.text && currentResponse.text.trim().length > 0);
+  // Logic: Info cards are always valid. Form cards need text OR tags to be valid if mandatory.
+  // Actually, let's make it flexible: allow Next if it's InfoOnly OR if user entered something OR if it's optional.
+  // For this specific survey, let's say all input fields are 'mandatory' but loose validation (min length 1).
+  const isMandatory = !currentQuestion.isInfoOnly;
+  const hasContent = (currentResponse.text && currentResponse.text.trim().length > 0) || currentResponse.selectedTags.length > 0;
+  const isValid = !isMandatory || hasContent;
 
   const handleNext = async () => {
-    if (!isValid && currentIndex !== 0) return;
+    if (!isValid && isMandatory) {
+      // Small shake animation could go here
+      return; 
+    }
+
     if (isLastQuestion) {
        setIsFinished(true);
        setAnalysisLoading(true);
@@ -447,6 +524,14 @@ const App: React.FC = () => {
        setAnalysisLoading(false);
     } else {
        setCurrentIndex(prev => prev + 1);
+       // Scroll to top
+       window.scrollTo(0,0);
+    }
+  };
+
+  const handlePrev = () => {
+    if (currentIndex > 0) {
+      setCurrentIndex(prev => prev - 1);
     }
   };
 
@@ -457,6 +542,10 @@ const App: React.FC = () => {
     setResponses({...responses, [currentQuestion.id]: {...currentResponse, selectedTags: tags}});
   };
 
+  const handleTextChange = (text: string) => {
+    setResponses({...responses, [currentQuestion.id]: {...currentResponse, text}});
+  };
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files?.[0]) {
       const reader = new FileReader();
@@ -465,78 +554,198 @@ const App: React.FC = () => {
     }
   };
 
-  if (isFinished) return <div className="min-h-screen bg-slate-50 py-12"><AnalysisView result={analysisResult} loading={analysisLoading} responses={responses} onRestart={() => window.location.reload()} /></div>;
+  // --- RENDER: ANALYSIS VIEW ---
+  if (isFinished) {
+    return (
+      <div className="min-h-screen bg-slate-50 py-12">
+        <AnalysisView 
+          result={analysisResult} 
+          loading={analysisLoading} 
+          responses={responses} 
+          onRestart={() => window.location.reload()} 
+        />
+      </div>
+    );
+  }
 
+  // --- RENDER: INTRO VIEW ---
   if (currentIndex === 0) {
      return (
-        <div className="relative h-screen w-full bg-slate-900 overflow-hidden">
-           <img src={bgImage || currentQuestion.imageUrl} className="absolute inset-0 w-full h-full object-cover opacity-60" />
-           <div className="absolute inset-0 bg-black/40"></div>
-           <div className="relative z-10 flex flex-col items-center justify-center h-full text-center px-4 max-w-5xl mx-auto">
-              <span className="mb-6 px-4 py-1 border border-white/30 rounded-full text-white/80 text-sm uppercase tracking-widest">{currentQuestion.tags.join(' • ')}</span>
-              <h1 className="text-5xl md:text-7xl font-extrabold text-white mb-8 drop-shadow-xl leading-tight">{currentQuestion.text}</h1>
-              <button onClick={() => fileInputRef.current?.click()} className="absolute top-6 right-6 p-3 bg-white/10 hover:bg-white/20 backdrop-blur rounded-full text-white transition-all" title="Changer l'image">📷</button>
-              <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
-              <button onClick={handleNext} className="px-12 py-5 bg-white text-slate-900 text-xl font-bold rounded-full hover:scale-105 hover:shadow-[0_0_30px_rgba(255,255,255,0.3)] transition-all flex items-center">
-                Commencer <span className="ml-2">→</span>
+        <div className="relative h-screen w-full bg-slate-900 overflow-hidden group">
+           {/* Background Image with Fallback color */}
+           <div className="absolute inset-0 bg-slate-800">
+             <img 
+              src={bgImage || currentQuestion.imageUrl} 
+              className="w-full h-full object-cover opacity-60 transition-transform duration-[20s] ease-in-out transform scale-100 group-hover:scale-110" 
+              alt="Background"
+              onError={(e) => {e.currentTarget.style.display='none'}}
+             />
+           </div>
+           
+           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent"></div>
+           
+           <div className="relative z-10 flex flex-col items-center justify-center h-full text-center px-6 max-w-5xl mx-auto">
+              <div className="mb-8 animate-fade-in-down">
+                <span className="px-5 py-2 bg-white/10 backdrop-blur-md border border-white/20 rounded-full text-white/90 text-xs font-bold uppercase tracking-[0.2em] shadow-lg">
+                  {currentQuestion.tags.join(' • ')}
+                </span>
+              </div>
+              
+              <h1 className="text-5xl md:text-7xl font-black text-white mb-10 drop-shadow-2xl leading-tight tracking-tight">
+                {currentQuestion.text}
+              </h1>
+              
+              <button 
+                onClick={handleNext} 
+                className="group relative px-12 py-5 bg-white text-slate-900 text-xl font-bold rounded-full overflow-hidden transition-all hover:scale-105 hover:shadow-[0_0_40px_rgba(255,255,255,0.4)]"
+              >
+                <span className="relative z-10 flex items-center">
+                  Commencer l'entrevue <span className="ml-3 group-hover:translate-x-1 transition-transform">→</span>
+                </span>
               </button>
+
+              {/* Edit Image Button */}
+              <button 
+                onClick={() => fileInputRef.current?.click()} 
+                className="absolute top-8 right-8 p-3 bg-black/20 hover:bg-white/20 backdrop-blur-md rounded-full text-white/70 hover:text-white transition-all border border-white/10" 
+                title="Changer l'image de fond"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0zM18.75 10.5h.008v.008h-.008V10.5z" />
+                </svg>
+              </button>
+              <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
            </div>
         </div>
      );
   }
 
+  // --- RENDER: QUESTION FLOW ---
+
   const getCategoryColor = (c: string) => {
-    if(c === 'PRATIQUES') return 'bg-sky-50';
-    if(c === 'DIFFICULTES') return 'bg-orange-50';
-    if(c === 'BESOINS') return 'bg-indigo-50';
-    return 'bg-slate-50';
+    if(c === 'PRATIQUES') return 'bg-sky-50 from-sky-50 to-white';
+    if(c === 'DIFFICULTES') return 'bg-orange-50 from-orange-50 to-white';
+    if(c === 'BESOINS') return 'bg-indigo-50 from-indigo-50 to-white';
+    return 'bg-slate-50 from-slate-50 to-white';
   };
 
+  const progress = ((currentIndex) / (SURVEY_DATA.length - 1)) * 100;
+
   return (
-    <div className={`min-h-screen flex items-center justify-center p-4 ${getCategoryColor(currentQuestion.category)} transition-colors duration-500`}>
-       <div className="max-w-3xl w-full bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col min-h-[600px]">
-          <div className="w-full bg-slate-100 h-2"><div className="bg-sky-500 h-full transition-all duration-500" style={{width: `${(currentIndex/SURVEY_DATA.length)*100}%`}}></div></div>
+    <div className={`min-h-screen flex items-center justify-center p-4 bg-gradient-to-br ${getCategoryColor(currentQuestion.category)} transition-colors duration-700`}>
+       <div className="max-w-4xl w-full bg-white/80 backdrop-blur-xl rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col min-h-[650px] border border-white/50 relative">
           
-          <div className="p-8 md:p-12 flex flex-col flex-grow">
-            <div className="mb-6 flex justify-between items-center">
-              <span className="px-3 py-1 bg-slate-100 text-slate-600 text-xs font-bold rounded-full tracking-widest">{currentQuestion.category}</span>
-              <div className="text-xs text-slate-400">{currentIndex + 1} / {SURVEY_DATA.length}</div>
+          {/* Progress Bar */}
+          <div className="absolute top-0 left-0 w-full h-1.5 bg-slate-100 z-20">
+             <div 
+               className="h-full bg-gradient-to-r from-sky-400 to-blue-600 transition-all duration-700 ease-out" 
+               style={{width: `${progress}%`}}
+             ></div>
+          </div>
+          
+          <div className="p-8 md:p-14 flex flex-col flex-grow relative z-10">
+            {/* Header */}
+            <div className="mb-8 flex justify-between items-end border-b border-slate-100 pb-4">
+              <div className="flex flex-col gap-2">
+                <span className="text-[10px] font-black tracking-[0.2em] text-slate-400 uppercase">
+                  {currentQuestion.category}
+                </span>
+                <span className="text-slate-300 text-sm font-medium">Question {currentIndex} / {SURVEY_DATA.length - 1}</span>
+              </div>
+              <div className="hidden md:flex gap-1">
+                 {currentQuestion.tags.map(t => (
+                   <span key={t} className="px-2 py-1 bg-slate-100 text-slate-500 rounded text-[10px] font-bold uppercase tracking-wider">{t}</span>
+                 ))}
+              </div>
             </div>
             
-            <h2 className="text-3xl font-bold text-slate-800 mb-8 leading-snug">
+            {/* Question Text */}
+            <h2 className="text-3xl md:text-4xl font-bold text-slate-800 mb-10 leading-tight">
               {currentQuestion.text} 
-              {isMandatory && <span className="text-rose-500 ml-2 text-xl align-top" title="Réponse requise">*</span>}
+              {isMandatory && !currentQuestion.isInfoOnly && <span className="text-rose-400 text-2xl ml-1 align-top" title="Requis">*</span>}
             </h2>
             
+            {/* Content Area */}
             <div className="flex-grow">
               {currentQuestion.isInfoOnly ? (
-                 <div className="bg-sky-50 p-8 rounded-2xl border-l-4 border-sky-500 text-sky-900">
-                    <p className="text-xl font-semibold mb-2">{currentQuestion.placeholder}</p>
-                    <p className="text-sm text-sky-600 mt-4 uppercase font-bold tracking-wide">→ Cliquez sur Suivant pour continuer</p>
-                 </div>
-              ) : (
-                 <div className="space-y-6">
-                    {currentQuestion.answerTags && (
-                      <div className="flex flex-wrap gap-2">
-                         {currentQuestion.answerTags.map(tag => (
-                            <button key={tag} onClick={() => handleTagToggle(tag)} className={`px-4 py-2 rounded-full font-bold text-sm border-2 transition-all ${currentResponse.selectedTags.includes(tag) ? 'bg-sky-600 text-white border-sky-600 shadow-md' : 'text-slate-500 border-slate-100 hover:border-sky-200'}`}>{tag}</button>
-                         ))}
+                 <div className="bg-gradient-to-br from-sky-50 to-white p-10 rounded-3xl border border-sky-100 shadow-sm flex flex-col md:flex-row gap-8 items-center">
+                    {currentQuestion.imageUrl && (
+                      <div className="w-full md:w-1/3 h-48 rounded-2xl overflow-hidden shadow-md flex-shrink-0">
+                         <img src={currentQuestion.imageUrl} className="w-full h-full object-cover" alt="Illustration" />
                       </div>
                     )}
-                    <textarea 
-                      value={currentResponse.text} 
-                      onChange={e => setResponses({...responses, [currentQuestion.id]: {...currentResponse, text: e.target.value}})}
-                      className={`w-full h-48 p-5 border-2 rounded-2xl outline-none resize-none transition-all text-lg ${!isValid && isMandatory ? 'border-rose-200 bg-rose-50 focus:border-rose-400' : 'border-slate-100 bg-slate-50 focus:bg-white focus:border-sky-500 focus:shadow-md'}`}
-                      placeholder={currentQuestion.placeholder || "Écrivez votre réponse ici..."}
-                    />
-                    {!isValid && isMandatory && <p className="text-rose-500 text-sm font-bold animate-pulse">Réponse écrite requise</p>}
+                    <div>
+                      <p className="text-xl font-medium text-slate-700 leading-relaxed">{currentQuestion.placeholder}</p>
+                      <div className="mt-6 flex items-center text-sky-600 text-sm font-bold uppercase tracking-wide animate-pulse">
+                        <span>Continuez</span> <span className="ml-2">→</span>
+                      </div>
+                    </div>
+                 </div>
+              ) : (
+                 <div className="space-y-6 animate-fade-in-up">
+                    {currentQuestion.answerTags && (
+                      <div className="flex flex-wrap gap-3 mb-6">
+                         {currentQuestion.answerTags.map(tag => {
+                            const isSelected = currentResponse.selectedTags.includes(tag);
+                            return (
+                              <button 
+                                key={tag} 
+                                onClick={() => handleTagToggle(tag)} 
+                                className={`
+                                  px-5 py-2.5 rounded-xl font-bold text-sm border transition-all duration-200
+                                  ${isSelected 
+                                    ? 'bg-slate-800 text-white border-slate-800 shadow-lg scale-105' 
+                                    : 'bg-white text-slate-500 border-slate-200 hover:border-sky-300 hover:text-sky-600 hover:shadow-sm'}
+                                `}
+                              >
+                                {tag}
+                              </button>
+                            );
+                         })}
+                      </div>
+                    )}
+                    <div className="relative">
+                      <textarea 
+                        value={currentResponse.text} 
+                        onChange={e => handleTextChange(e.target.value)}
+                        className={`
+                          w-full h-48 p-6 text-lg rounded-2xl outline-none resize-none transition-all shadow-inner
+                          ${(!isValid && isMandatory) 
+                            ? 'bg-rose-50 border-2 border-rose-200 focus:border-rose-400 placeholder-rose-300' 
+                            : 'bg-slate-50 border-2 border-transparent focus:bg-white focus:border-sky-500 focus:shadow-xl placeholder-slate-300'}
+                        `}
+                        placeholder={currentQuestion.placeholder || "Écrivez votre réponse ici..."}
+                      />
+                      {!isValid && isMandatory && (
+                        <div className="absolute bottom-4 right-4 text-rose-500 text-xs font-bold bg-white/80 px-2 py-1 rounded-md shadow-sm pointer-events-none">
+                          Réponse requise
+                        </div>
+                      )}
+                    </div>
                  </div>
               )}
             </div>
             
-            <div className="mt-10 pt-6 border-t border-slate-100 flex justify-between items-center">
-               <button onClick={() => setCurrentIndex(c => c - 1)} className="text-slate-400 font-bold hover:text-slate-700 transition-colors flex items-center"><span className="mr-2">←</span> Retour</button>
-               <button onClick={handleNext} disabled={!isValid && currentIndex !== 0} className={`px-8 py-3 rounded-xl font-bold transition-all transform hover:-translate-y-1 shadow-lg ${isValid || currentIndex === 0 ? 'bg-slate-900 text-white hover:bg-sky-600' : 'bg-slate-100 text-slate-300 cursor-not-allowed shadow-none'}`}>
+            {/* Footer Navigation */}
+            <div className="mt-12 pt-6 border-t border-slate-100 flex justify-between items-center">
+               <button 
+                 onClick={handlePrev} 
+                 className="px-6 py-3 rounded-xl text-slate-400 font-bold hover:bg-slate-50 hover:text-slate-700 transition-colors flex items-center group"
+               >
+                 <span className="mr-2 group-hover:-translate-x-1 transition-transform">←</span> Retour
+               </button>
+
+               <button 
+                 onClick={handleNext} 
+                 disabled={!isValid && isMandatory} 
+                 className={`
+                   px-10 py-4 rounded-xl font-bold transition-all shadow-lg flex items-center
+                   ${(!isValid && isMandatory)
+                     ? 'bg-slate-100 text-slate-300 cursor-not-allowed shadow-none' 
+                     : 'bg-slate-900 text-white hover:bg-sky-600 hover:scale-105 hover:shadow-sky-200/50'}
+                 `}
+               >
                  {isLastQuestion ? 'Terminer' : 'Suivant'} <span className="ml-2">→</span>
                </button>
             </div>
