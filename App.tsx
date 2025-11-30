@@ -155,6 +155,14 @@ const SURVEY_DATA: Question[] = [
     imageUrl: "https://picsum.photos/seed/crying_child/800/600"
   },
   {
+    id: 'theme_b_3.1',
+    category: QuestionCategory.THEME_B,
+    text: "Comment gérez-vous cela ?",
+    tags: ['Émotion', 'Besoins Spéciaux', 'Inconfort'],
+    placeholder: "Suite à la question : Certains enfants réagissent-ils différemment au froid (besoins particuliers, anxiété) ",
+    imageUrl: "https://picsum.photos/seed/crying_child/800/600"
+  },
+  {
     id: 'theme_b_4',
     category: QuestionCategory.THEME_B,
     text: "Quels impacts observez-vous sur l'organisation et les routines lors d'annulations dues à la météo ?",
@@ -216,7 +224,12 @@ const SURVEY_DATA: Question[] = [
     answerTags: ['Toit transparent', 'Sol chauffant', 'Nature intégrée', 'Pentes douces', 'Cabane chauffée', 'Tunnel', 'Atelier extérieur'],
     placeholder: "Un espace couvert mais ouvert, avec...",
     imageUrl: "https://picsum.photos/seed/winter_wonderland/800/600"
-  }
+  },
+  id: 'theme_c_5.1',
+    category: QuestionCategory.THEME_C,
+    text: "Avez-vous d'autre remarque ?",
+    placeholder: "Décrivez-vous",
+    imageUrl: "https://picsum.photos/seed/winter_wonderland/800/600"
 ];
 
 // 4. SERVICES
