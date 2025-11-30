@@ -49,7 +49,7 @@ const SURVEY_DATA: Question[] = [
   {
     id: 'intro_01',
     category: QuestionCategory.INTRO,
-    text: "Bienvenue à l'entrevue : Sorties Hivernales en CPE",
+    text: "Bienvenue à l'entrevue : Sorties Hivernales en position par rapport à l'enfant",
     tags: ['Recherche', 'Design', 'Innovation'],
     placeholder: "",
     imageUrl: "https://www.voyagesetenfants.com/wp-content/uploads/2020/11/2015.02.28-Raquette-%C3%A9cole-emilien-3-1024x576.jpg",
@@ -60,16 +60,16 @@ const SURVEY_DATA: Question[] = [
     category: QuestionCategory.CONTEXT,
     text: "Cadre de la recherche",
     tags: ['Contexte', 'Objectifs'],
-    placeholder: "Notre recherche porte sur les besoins concrets liés aux sorties hivernales avec les enfants en CPE. L’objectif est de mieux comprendre les défis rencontrés au quotidien (matériels, organisationnels) afin d’identifier des pistes d’amélioration réalistes.",
+    placeholder: "Notre recherche porte sur les besoins concrets liés aux sorties hivernales avec les enfants. L’objectif est de mieux comprendre les défis rencontrés au quotidien (matériels, organisationnels) afin d’identifier des pistes d’amélioration réalistes.",
     imageUrl: "https://picsum.photos/seed/winter_research/800/600",
     isInfoOnly: true
   },
   {
     id: 'icebreaker',
     category: QuestionCategory.CONTEXT,
-    text: "Pour commencer, pouvez-vous vous présenter brièvement et décrire votre rôle au sein du CPE ?",
+    text: "Pour commencer, pouvez-vous vous présenter brièvement et décrire votre rôle?",
     tags: ['Présentation', 'Rôle', 'Expérience'],
-    answerTags: ['Éducatrice 0-2 ans', 'Éducatrice 3-5 ans', 'Rotation', 'Direction', 'Conseillère Pédagogique', '> 10 ans exp.', '< 5 ans exp.'],
+    answerTags: ['Éducatrice', 'Rotation', 'Direction', 'Conseillère Pédagogique', 'Parents', 'Grand-parents'],
     placeholder: "Ex: Je suis éducatrice depuis 10 ans auprès des 4-5 ans...",
     imageUrl: "https://picsum.photos/seed/teacher/800/600"
   },
@@ -78,7 +78,7 @@ const SURVEY_DATA: Question[] = [
     category: QuestionCategory.THEME_A,
     text: "Thématique A : Décrire vos pratiques hivernales",
     tags: ['Routine', 'Activités'],
-    placeholder: "Objectif : Comprendre concrètement comment se déroulent les sorties hivernales en CPE, de la préparation jusqu’au retour à l’intérieur.",
+    placeholder: "Objectif : Comprendre concrètement comment se déroulent les sorties hivernales, de la préparation jusqu’au retour à l’intérieur.",
     imageUrl: "",
     isInfoOnly: true
   },
@@ -103,7 +103,7 @@ const SURVEY_DATA: Question[] = [
   {
     id: 'theme_a_3',
     category: QuestionCategory.THEME_A,
-    text: "Est-ce que vous adaptez vos activités selon les conditions du jour ? Comment ?",
+    text: "Est-ce que vous adaptez vos activités selon les conditions du jour ? Pourqoui ?",
     tags: ['Adaptation', 'Météo', 'Flexibilité'],
     answerTags: ['Grand froid', 'Verglas', 'Vent', 'Neige collante', 'Sortie raccourcie', 'Annulation', 'Marche seulement', 'Gymnase'],
     placeholder: "S'il fait très froid, on raccourcit la sortie...",
@@ -141,7 +141,7 @@ const SURVEY_DATA: Question[] = [
     category: QuestionCategory.THEME_B,
     text: "Y a-t-il des moments où vous vous sentez particulièrement impuissant(e) ou préoccupé(e) concernant la sécurité ?",
     tags: ['Stress', 'Chutes', 'Surveillance'],
-    answerTags: ['Glace noire', 'Escaliers', 'Déneigement insuffisant', 'Chutes fréquentes', 'Visibilité réduite', 'Ratio enfants/adulte', 'Équipement brisé'],
+    answerTags: ['Glace', 'Escaliers', 'Déneigement insuffisant', 'Chutes fréquentes', 'Visibilité réduite', 'Ratio enfants/adulte', 'Équipement brisé'],
     placeholder: "Quand c'est glacé près de la porte...",
     imageUrl: "https://picsum.photos/seed/ice/800/600"
   },
@@ -168,14 +168,14 @@ const SURVEY_DATA: Question[] = [
     category: QuestionCategory.THEME_C,
     text: "Thématique C : Faire émerger les besoins non satisfaits",
     tags: ['Besoins', 'Futur', 'Solutions'],
-    placeholder: "Objectifs : Comprendre ce qui manque actuellement pour soutenir de meilleures expériences hivernales au sens des CPE.",
+    placeholder: "Objectifs : Comprendre ce qui manque actuellement pour soutenir de meilleures expériences hivernales.",
     imageUrl: "",
     isInfoOnly: true
   },
   {
     id: 'theme_c_1',
     category: QuestionCategory.THEME_C,
-    text: "Quels soutiens matériels ou organisationnels vous manquent le plus pour faciliter les sorties ?",
+    text: "Qu'est-ce qui vous manque le plus pour faciliter les sorties ?",
     tags: ['Besoins', 'Matériel', 'Aide'],
     answerTags: ['Plus de rangement', 'Aide à l\'habillage', 'Meilleurs vêtements', 'Cour mieux déneigée', 'Abri extérieur', 'Chauffage d\'appoint', 'Vestiaire plus grand'],
     placeholder: "Il nous faudrait plus d'espace pour...",
@@ -202,7 +202,7 @@ const SURVEY_DATA: Question[] = [
   {
     id: 'theme_c_4',
     category: QuestionCategory.THEME_C,
-    text: "Quels équipements actuels vous semblent utilisables mais inadéquats ? Qu'est-ce qui manque ?",
+    text: "Quels équipements actuels vous semblent utilisables mais inadéquats ? ",
     tags: ['Ergonomie', 'Efficacité', 'Critique'],
     answerTags: ['Zips coincés', 'Bottes lourdes', 'Mitaines qui tombent', 'Cache-cou mouillé', 'Pelles fragiles', 'Traîneaux instables', 'Modules glissants'],
     placeholder: "Les modules de jeux sont trop glissants...",
